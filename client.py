@@ -2,6 +2,7 @@ import socket
 import re
 import base64
 from Crypto.Cipher import AES
+import json
 
 def base64_encode(message_bytes):
     base64_bytes = base64.b64encode(message_bytes)

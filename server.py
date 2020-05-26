@@ -2,6 +2,7 @@ import socket
 import re
 import base64
 from Crypto.Cipher import AES
+import json
 
 def base64_encode(message_bytes):
     base64_bytes = base64.b64encode(message_bytes)
@@ -29,10 +30,10 @@ def decrypt_AES_GCM(message, Bnonc, BauthTag, secretKey):
 
 # server generate a prime number and generater(for example with openssl)
 prime = 0xba01af369bef860023562c7f5e517a9b
-g = 2
+generator = 2
 
-server_private = 0x4de0438f4457df470dd099a3c108a9cc # server private key
-server_public = (g ^ server_private) % prime    # calculate public key
+serverPrivateKey = 0x4de0438f4457df470dd099a3c108a9cc # server private key
+serverPublicKey = (generator ^ serverPrivateKey) % prime    # calculate public key
 
 HOST = '127.0.0.1'
 PORT = 65432
@@ -41,15 +42,23 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.bind((HOST, PORT))
     s.listen()
     conn, addr = s.accept()
+    b = b''
+
     with conn:
         print('Connected by', addr)
-        print('\nsending the public paramters of Diffie-hellman to client...\n')
-        data = 'INITIAL_PARAMS = prime:' + str(prime) + ', g:' + str(g) # send two public paramets(prime number and generator) without encryption
-        conn.sendall(data.encode())
+        print('set initial paramters prime and generater')
+        msg = {'set':'initialParametrs', 'firstParam':str(prime), 'secondParam':str(generator), 'thirdParam':''}
+        message = json.dumps(msg).encode('utf-8')
+        conn.sendall(message)
+        print('server public key:' , hex(serverPublicKey))
+        print('server private key:' , hex(serverPrivateKey))
+        print('prime:', prime)
+        print('generator:',generator)
+        msg = {'set':'secondParametrs', 'firstParam':str(serverPublicKey), 'secondParam':str(generator), 'thirdParam':''}
+        message = json.dumps(msg).encode('utf-8')
+        conn.sendall(message)
 
-        print("sending the server's public key to client...\n")          # send server's public key without encryption
-        data = 'SERVER_PUBLIC_KEY =' + str(server_public)
-        conn.sendall(data.encode())
+        print('send initial paramters to client for connection')
 
         while True:
             data = conn.recv(1024)
