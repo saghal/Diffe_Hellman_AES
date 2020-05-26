@@ -3,6 +3,7 @@ import re
 import base64
 from Crypto.Cipher import AES
 import json
+import time
 
 def base64_encode(message_bytes):
     base64_bytes = base64.b64encode(message_bytes)
@@ -28,7 +29,7 @@ def decrypt_AES_GCM(message, Bnonc, BauthTag, secretKey):
     plaintext = aesCipher.decrypt_and_verify(ciphertext, authTag)
     return plaintext
 
-cilentPrivateKey = 0x7250f5b473a13f2faffa851c4076bc2c # client private key
+cilentPrivateKey = 0x7250f5b473a13f2faffa851c4076bc2c
 
 HOST = '127.0.0.1'
 PORT = 65432
@@ -55,27 +56,30 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.sendall(message)
 
         elif d['set'] == 'secondParametrs':
-            serverPublicKey = int(d['secondParam'])
+            serverPublicKey = int(d['firstParam'])
             print('serverPublicKey: ',hex(serverPublicKey))
             sessionKey = (serverPublicKey ^ cilentPrivateKey) % prime
             print('session Key: ',hex(sessionKey))
             plaintext = input('Write your message: ')
             tempPlaintext = bytes(plaintext,'utf-8')
             ciphertext = encrypt_AES_GCM(tempPlaintext,sessionKey)
-            message = encodeBase64(ciphertext[0])
-            messageNonce = encodeBase64(ciphertext[1])
-            messageAuthTag = encodeBase64(ciphertext[2])
+            message = base64_encode(ciphertext[0])
+            messageNonce = base64_encode(ciphertext[1])
+            messageAuthTag = base64_encode(ciphertext[2])
             print('\n\nsending --> ',plaintext)
             print('cipher text: ',message)
             a = {'set':'clientMessage', 'firstParam':str(message),'secondParam':str(messageNonce), 'thirdParam':str(messageAuthTag)}
             b = json.dumps(a).encode('utf-8')
             s.sendall(b)
+
         elif d['set'] == 'sendMessage':
             print('\n\nReceived message from Server')
-            print('cipher : ',d['firstParam']) #this prime means cipher message not prime
-
+            print('cipher : ',d['firstParam'])
             message_bytes = base64_decode(d['firstParam'])
             message_bytes_nonce = base64_decode(d['secondParam'])              # convert bsae64 nonce and cipherText to bytes
-            plaintext = decrypt_AES_GCM(sessionKey, message_bytes, message_bytes_nonce)
+            message_bytes_authTag = base64_decode(d['thirdParam'])
+            plaintext = decrypt_AES_GCM(message_bytes, message_bytes_nonce, message_bytes_authTag, sessionKey)
             print('the dectypted message of Received message: ', plaintext)
+            time.sleep(600)
+
             break
