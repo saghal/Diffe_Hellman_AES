@@ -54,33 +54,28 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             message = json.dumps(msg).encode('utf-8')
             s.sendall(message)
 
-        if data.startswith('SERVER_PUBLIC_KEY'):                # Receiving servers's public key
-            server_public = int(re.findall('[0-9]+' , data)[0])
-            print('client public key:' , hex(client_public))
-            print('client private key:', hex(cilent_private))
-            print('server public key:' , hex(server_public))
-            session_key = (server_public ^ cilent_private) % prime  # calculate session key base on server's public key and client's private key
-            print("session_key:" , hex(session_key), '\n')
+        elif d['set'] == 'secondParametrs':
+            serverPublicKey = int(d['secondParam'])
+            print('serverPublicKey: ',hex(serverPublicKey))
+            sessionKey = (serverPublicKey ^ cilentPrivateKey) % prime
+            print('session Key: ',hex(sessionKey))
+            plaintext = input('Write your message: ')
+            tempPlaintext = bytes(plaintext,'utf-8')
+            ciphertext = encrypt_AES_GCM(tempPlaintext,sessionKey)
+            message = encodeBase64(ciphertext[0])
+            messageNonce = encodeBase64(ciphertext[1])
+            messageAuthTag = encodeBase64(ciphertext[2])
+            print('\n\nsending --> ',plaintext)
+            print('cipher text: ',message)
+            a = {'set':'clientMessage', 'firstParam':str(message),'secondParam':str(messageNonce), 'thirdParam':str(messageAuthTag)}
+            b = json.dumps(a).encode('utf-8')
+            s.sendall(b)
+        elif d['set'] == 'sendMessage':
+            print('\n\nReceived message from Server')
+            print('cipher : ',d['firstParam']) #this prime means cipher message not prime
 
-            plaintext = input('Enter your text to send\n')
-            ciphertext, nonce = encryption(session_key, plaintext)
-
-            base64_message = base64_encode(ciphertext)
-            base64_message_nonce = base64_encode(nonce)
-            print('\nthe plain text is  :', plaintext)
-            print('the cipher text is :', base64_message)
-            print('sending \'', base64_message, '\' (cipher text) to server...\n')
-            data = 'CIPHER_TEXT:' + str(base64_message) + ', NONCE:' + str(base64_message_nonce) # send encryted data to server
-            s.sendall(data.encode())
-
-        if data.startswith('CIPHER_TEXT :'):                          # Receiving server's cipherText which encryted with session key
-            print('Received -------> "', data, '"')
-            ciphertext = re.findall('CIPHER_TEXT :(.+),', data)[0]
-            nonce = re.findall('NONCE:(.+)', data)[0]
-            print('\nraw cipher text of Received message: ', ciphertext)
-
-            message_bytes = base64_decode(ciphertext)
-            message_bytes_nonce = base64_decode(nonce)              # convert bsae64 nonce and cipherText to bytes
-            plaintext = decryption(session_key, message_bytes, message_bytes_nonce)
+            message_bytes = base64_decode(d['firstParam'])
+            message_bytes_nonce = base64_decode(d['secondParam'])              # convert bsae64 nonce and cipherText to bytes
+            plaintext = decrypt_AES_GCM(sessionKey, message_bytes, message_bytes_nonce)
             print('the dectypted message of Received message: ', plaintext)
             break
