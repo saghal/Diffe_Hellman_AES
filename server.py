@@ -13,16 +13,18 @@ def base64_decode(base64_message):
     message_bytes = base64.b64decode(base64_bytes)
     return message_bytes
 
-def encryption(session_key, plaintext):
-    cipher = AES.new(session_key.to_bytes(16, byteorder = 'big'),AES.MODE_EAX)
-    nonce = cipher.nonce
-    ciphertext, tag = cipher.encrypt_and_digest(plaintext.encode()) # encryte data
-    return ciphertext, nonce
+def encrypt_AES_GCM(message, secretKey):
+    aesCipher = AES.new(secretKey.to_bytes(16,'big'), AES.MODE_GCM)
+    ciphertext, authTag = aesCipher.encrypt_and_digest(message)
+    return (ciphertext, aesCipher.nonce, authTag)
 
-def decryption(session_key, message_bytes, nonce):
-    cipher = AES.new(session_key.to_bytes(16, byteorder = 'big'), AES.MODE_EAX, nonce=nonce)
-    plaintext = cipher.decrypt(message_bytes)               # decrype message with session key and nonce
-    plaintext = plaintext.decode()
+
+def decrypt_AES_GCM(message, Bnonc, BauthTag, secretKey):
+    ciphertext = message
+    nonce = Bnonc
+    authTag = BauthTag
+    aesCipher = AES.new(secretKey.to_bytes(16,'big'), AES.MODE_GCM, nonce)
+    plaintext = aesCipher.decrypt_and_verify(ciphertext, authTag)
     return plaintext
 
 # server generate a prime number and generater(for example with openssl)
